@@ -1,10 +1,18 @@
 # GitLab Duo Custom Flow — Security Orchestration
 # 4-agent chain: Discovery → Triage → Remediation → Reporting
 #
-# Trigger: mention @ai-secflow-<group> in any MR or issue comment
-# Platform: GitLab Duo Custom Flows (Beta 18.7+, GA 18.8)
-# LLM: Claude Sonnet 4 (automatic — no API key needed)
+# HOW TO ENABLE THIS FLOW:
+#   1. Go to your GitLab project → Automate → Flows → New flow
+#   2. Paste this YAML into the flow editor
+#   3. Configure trigger via the UI (mention / assign / assign reviewer)
+#      Recommended: trigger = "mention" so @ai-secflow in any MR activates it
+#   4. Save and enable the flow
 #
+# NOTE: Triggers are configured in the GitLab UI when enabling the flow,
+# NOT in this YAML file. The flow editor handles trigger binding separately.
+#
+# Platform: GitLab Duo Custom Flows (Beta 18.7+, GA 18.8)
+# LLM: Claude Sonnet 4 (automatic — no API key needed via Duo Enterprise)
 # Docs: https://docs.gitlab.com/ee/user/duo_workflow/custom_flows.html
 
 name: security-orchestration
@@ -12,16 +20,10 @@ description: >
   4-agent security pipeline: scans for vulnerabilities, enriches with CVE data,
   detects false positives, generates fixes, creates issues, and produces a
   compliance audit report. Covers SAST, SCA, secrets, and IaC scanning.
+  Trigger this flow by mentioning @ai-secflow in any MR or issue comment
+  (trigger type configured via UI when enabling the flow).
 
 version: "1.0"
-
-# ── Triggers ──────────────────────────────────────────────────────────────────
-triggers:
-  - type: mention
-    pattern: "@ai-secflow"
-  - type: assign
-    role: reviewer
-    label: "security::review"
 
 # ── Agent Components ──────────────────────────────────────────────────────────
 components:
