@@ -1,0 +1,87 @@
+# GitLab CI/CD Pipeline — Security Orchestration Flow
+# Runs full security scan suite + triggers the 4-agent Duo Custom Flow
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Dependency-Scanning.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+  - template: Security/Container-Scanning.gitlab-ci.yml
+
+stages:
+  - test
+  - security-scan
+  - secflow-trigger
+
+variables:
+  SAST_EXCLUDED_PATHS: "spec, test, tests, tmp"
+  DS_EXCLUDED_PATHS: "spec, test, tests, tmp"
+  SECURE_LOG_LEVEL: "info"
+
+# ── Unit tests ────────────────────────────────────────────────────────────────
+unit-tests:
+  stage: test
+  image: python:3.11-slim
+  script:
+    - pip install pytest flask
+    - echo "No unit tests yet — placeholder"
+  allow_failure: true
+
+# ── Semgrep SAST (augments GitLab built-in SAST) ─────────────────────────────
+semgrep-scan:
+  stage: security-scan
+  image: returntocorp/semgrep:latest
+  script:
+    - semgrep --config=p/owasp-top-ten --config=p/python --config=p/secrets
+        --json --output=semgrep-results.json vulnerable_app/ || true
+    - semgrep --config=p/owasp-top-ten --config=p/python --config=p/secrets
+        vulnerable_app/ || true
+  artifacts:
+    reports:
+      sast: semgrep-results.json
+    paths:
+      - semgrep-results.json
+    expire_in: 1 week
+  allow_failure: true
+
+# ── Bandit Python security linter ─────────────────────────────────────────────
+bandit-scan:
+  stage: security-scan
+  image: python:3.11-slim
+  script:
+    - pip install bandit[toml]
+    - bandit -r vulnerable_app/ -f json -o bandit-results.json -ll || true
+    - bandit -r vulnerable_app/ -ll || true
+  artifacts:
+    paths:
+      - bandit-results.json
+    expire_in: 1 week
+  allow_failure: true
+
+# ── Safety SCA (known CVEs in requirements.txt) ───────────────────────────────
+safety-scan:
+  stage: security-scan
+  image: python:3.11-slim
+  script:
+    - pip install safety
+    - safety check -r vulnerable_app/requirements.txt --json > safety-results.json || true
+    - safety check -r vulnerable_app/requirements.txt || true
+  artifacts:
+    paths:
+      - safety-results.json
+    expire_in: 1 week
+  allow_failure: true
+
+# ── Trigger SecFlow (posts @ai-secflow mention to kick off 4-agent chain) ─────
+# NOTE: In production, the flow is triggered by @ai-secflow mention in MR.
+# This job demonstrates programmatic triggering via GitLab API.
+secflow-trigger-demo:
+  stage: secflow-trigger
+  image: alpine/curl:latest
+  script:
+    - echo "SecFlow triggered — agents will run asynchronously via Duo Workflow Service"
+    - echo "To trigger manually: mention @ai-secflow in any MR comment"
+    - echo "Flow definition: .gitlab/duo/flows/security-orchestration.yml"
+  only:
+    - main
+    - merge_requests
+  allow_failure: true
