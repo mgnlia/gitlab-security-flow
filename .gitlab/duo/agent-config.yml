@@ -1,0 +1,44 @@
+# GitLab Duo Agent Configuration
+# Controls the CI/CD runner environment for all Custom Flow agents
+# Docs: https://docs.gitlab.com/ee/user/duo_workflow/
+
+version: "1.0"
+
+# Runner configuration — must match runner tags in your GitLab instance
+runner:
+  tags:
+    - gitlab--duo
+  docker:
+    image: python:3.11-slim
+
+# Tool setup script — runs before each agent
+setup_script: |
+  pip install --quiet --upgrade pip
+  pip install semgrep==1.62.0 bandit==1.7.9 safety==3.2.0 pip-audit==2.7.3
+  pip install requests==2.31.0 python-gitlab==4.4.0
+  semgrep --version
+  bandit --version
+
+# Caching — speeds up repeated runs
+cache:
+  key: secflow-tools-v1
+  paths:
+    - .pip-cache/
+    - .semgrep-cache/
+
+# Environment variables available to all agents
+env:
+  SEMGREP_RULES: "p/owasp-top-ten p/python p/javascript p/secrets p/supply-chain"
+  BANDIT_SEVERITY: "medium"   # minimum severity to report: low|medium|high
+  SAFETY_FULL_REPORT: "true"
+  MAX_FINDINGS_PER_AGENT: "50"
+  AUTO_DISMISS_FP_THRESHOLD: "0.85"
+  AUTO_ISSUE_CVSS_THRESHOLD: "7.0"
+
+# Timeout per agent (seconds)
+timeout: 300
+
+# Retry on transient failures
+retry:
+  max_attempts: 2
+  backoff_seconds: 10

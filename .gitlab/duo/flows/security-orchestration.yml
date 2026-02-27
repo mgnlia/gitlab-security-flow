@@ -1,0 +1,168 @@
+# GitLab Duo Custom Flow — Security Orchestration
+# 4-agent chain: Discovery → Triage → Remediation → Reporting
+#
+# Trigger: mention @ai-secflow-<group> in any MR or issue comment
+# Platform: GitLab Duo Custom Flows (Beta 18.7+, GA 18.8)
+# LLM: Claude Sonnet 4 (automatic — no API key needed)
+#
+# Docs: https://docs.gitlab.com/ee/user/duo_workflow/custom_flows.html
+
+name: security-orchestration
+description: >
+  4-agent security pipeline: scans for vulnerabilities, enriches with CVE data,
+  detects false positives, generates fixes, creates issues, and produces a
+  compliance audit report. Covers SAST, SCA, secrets, and IaC scanning.
+
+version: "1.0"
+
+# ── Triggers ──────────────────────────────────────────────────────────────────
+triggers:
+  - type: mention
+    pattern: "@ai-secflow"
+  - type: assign
+    role: reviewer
+    label: "security::review"
+
+# ── Agent Components ──────────────────────────────────────────────────────────
+components:
+
+  # ── Agent 1: DISCOVERY ────────────────────────────────────────────────────
+  - name: discovery
+    type: agent
+    prompt_id: prompts/discovery.md
+    description: >
+      Scans the project for all security vulnerabilities using SAST, SCA,
+      secrets detection, and IaC scanning. Produces a structured list of
+      raw findings for the Triage agent.
+    inputs:
+      project_id: "{{trigger.project_id}}"
+      mr_iid: "{{trigger.mr_iid}}"
+      branch: "{{trigger.source_branch | default: 'main'}}"
+      scan_types: "sast,dependency_scanning,secret_detection,container_scanning"
+    tools:
+      - list_vulnerabilities
+      - get_pipeline
+      - run_pipeline
+      - get_project
+      - list_merge_requests
+    output_schema:
+      type: object
+      properties:
+        findings:
+          type: array
+          description: Raw vulnerability findings from all scanners
+        scan_metadata:
+          type: object
+          description: Scanner versions, scan time, coverage stats
+        total_count:
+          type: integer
+        critical_count:
+          type: integer
+        high_count:
+          type: integer
+
+  # ── Agent 2: TRIAGE ───────────────────────────────────────────────────────
+  - name: triage
+    type: agent
+    prompt_id: prompts/triage.md
+    description: >
+      Enriches each finding with CVE data from NVD/GHSA, runs ML-based
+      false-positive detection, scores severity using CVSS v3, and
+      produces a prioritized, deduplicated finding list.
+    inputs:
+      raw_findings: "previous:discovery.output.findings"
+      scan_metadata: "previous:discovery.output.scan_metadata"
+      project_id: "{{trigger.project_id}}"
+    tools:
+      - get_vulnerability
+      - confirm_vulnerability
+      - dismiss_vulnerability
+      - sast_fp_analysis
+      - cve_enrichment
+      - get_project
+    output_schema:
+      type: object
+      properties:
+        confirmed_findings:
+          type: array
+          description: True positive findings with CVE enrichment and CVSS scores
+        dismissed_findings:
+          type: array
+          description: False positives with dismissal reason and FP confidence score
+        priority_order:
+          type: array
+          description: Finding IDs sorted by risk score (CVSS * exploitability)
+        triage_summary:
+          type: string
+
+  # ── Agent 3: REMEDIATION ──────────────────────────────────────────────────
+  - name: remediation
+    type: agent
+    prompt_id: prompts/remediation.md
+    description: >
+      For each confirmed high/critical finding: generates a concrete fix,
+      creates a GitLab vulnerability issue, links to existing fix MRs,
+      and suggests patch code where applicable.
+    inputs:
+      confirmed_findings: "previous:triage.output.confirmed_findings"
+      priority_order: "previous:triage.output.priority_order"
+      project_id: "{{trigger.project_id}}"
+      mr_iid: "{{trigger.mr_iid}}"
+    tools:
+      - create_vulnerability_issue
+      - link_vulnerability_to_mr
+      - list_merge_requests
+      - get_vulnerability
+      - create_note
+      - get_project
+    output_schema:
+      type: object
+      properties:
+        issues_created:
+          type: array
+          description: GitLab issue IDs created for each high/critical finding
+        mr_links:
+          type: array
+          description: Vulnerability-to-MR linkages established
+        fix_suggestions:
+          type: array
+          description: Code-level fix suggestions with before/after snippets
+        remediation_summary:
+          type: string
+
+  # ── Agent 4: REPORTING ────────────────────────────────────────────────────
+  - name: reporting
+    type: agent
+    prompt_id: prompts/reporting.md
+    description: >
+      Produces a comprehensive compliance report covering OWASP Top 10,
+      CWE Top 25, and SOC 2 CC6.x controls. Posts results as a GitLab
+      issue comment, creates a summary issue, and writes the full audit log.
+    inputs:
+      discovery_output: "previous:discovery.output"
+      triage_output: "previous:triage.output"
+      remediation_output: "previous:remediation.output"
+      project_id: "{{trigger.project_id}}"
+      mr_iid: "{{trigger.mr_iid}}"
+    tools:
+      - create_issue
+      - create_note
+      - audit_events
+      - get_project
+      - list_vulnerabilities
+    output_schema:
+      type: object
+      properties:
+        report_issue_iid:
+          type: integer
+          description: GitLab issue IID of the compliance report
+        audit_log_url:
+          type: string
+        owasp_coverage:
+          type: object
+          description: OWASP Top 10 category coverage map
+        compliance_score:
+          type: number
+          description: 0-100 security posture score
+        executive_summary:
+          type: string
