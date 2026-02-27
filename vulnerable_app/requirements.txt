@@ -1,0 +1,13 @@
+# Intentionally outdated dependencies for SecFlow SCA demo
+# Each package below has known CVEs that our Triage agent will enrich
+
+flask==2.0.1          # CVE-2023-30861 — cookie security bypass
+requests==2.25.0      # CVE-2023-32681 — proxy credential leak
+pillow==9.0.0         # CVE-2023-44271 — uncontrolled resource consumption
+cryptography==38.0.0  # CVE-2023-49083 — NULL pointer dereference
+werkzeug==2.0.0       # CVE-2023-46136 — DoS via multipart/form-data
+jinja2==3.0.0         # CVE-2024-34064 — XSS via xmlattr filter
+sqlalchemy==1.4.0     # CVE-2023-30531 — ReDoS in URL parsing
+pyyaml==5.3.1         # CVE-2020-14343 — arbitrary code execution
+paramiko==2.7.2       # CVE-2023-48795 — Terrapin SSH attack
+urllib3==1.26.4       # CVE-2021-33503 — ReDoS
