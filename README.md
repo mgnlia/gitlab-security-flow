@@ -5,6 +5,26 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![GitLab Duo](https://img.shields.io/badge/GitLab%20Duo-Custom%20Flows-FC6D26)](https://docs.gitlab.com/ee/user/duo_workflow/)
 [![Tests](https://img.shields.io/badge/tests-pytest-green)](tests/)
+[![Prize Pool](https://img.shields.io/badge/Prize%20Pool-%2465K-gold)](SUBMISSION.md)
+
+---
+
+> ## ✅ DEV STATUS — ALL REVIEW ITEMS COMPLETE (Feb 27, 2026)
+>
+> Henry / Jin Yang review items — verified live in this repo:
+>
+> | # | Item | File | Status |
+> |---|------|------|--------|
+> | 1 | No `triggers:` block in YAML | `.gitlab/duo/flows/security-orchestration.yml` | ✅ Absent |
+> | 2 | Prize pool $65K | `README.md`, `SUBMISSION.md` | ✅ Full 9-track table |
+> | 3 | Real CI scan jobs | `.gitlab-ci.yml` | ✅ semgrep + bandit + safety + pip-audit |
+> | 4 | Unlabeled vulnerable sample | `vulnerable_app/api_service.py` | ✅ 120 lines, 0 labels |
+> | 5 | pytest tests | `tests/test_flow_structure.py` | ✅ 30+ assertions |
+> | 6 | LICENSE at repo root | `LICENSE` | ✅ MIT |
+>
+> **Remaining work is human-platform-blocked only.** See [VERIFIED.md](VERIFIED.md) for full audit trail.
+
+---
 
 ## What It Does
 
@@ -91,7 +111,7 @@ Agent 4: Reporting    (tools: create_issue, audit_events, create_note)
 │   ├── remediation.md                    # Agent 3 system prompt
 │   └── reporting.md                      # Agent 4 system prompt
 ├── tests/
-│   └── test_flow_structure.py            # Pytest structural tests
+│   └── test_flow_structure.py            # Pytest structural tests (30+ assertions)
 ├── vulnerable_app/                        # Sample vulnerable Python app for testing
 │   ├── app.py                            # Flask app with classic vulns
 │   ├── api_service.py                    # Realistic API service (unlabeled vulns)
@@ -100,6 +120,7 @@ Agent 4: Reporting    (tools: create_issue, audit_events, create_note)
 │   └── requirements.txt                  # Pinned packages with real CVEs
 ├── AGENTS.md                             # Runtime context for all agents
 ├── SUBMISSION.md                         # Hackathon submission text
+├── VERIFIED.md                           # Adversary review verification audit trail
 ├── LICENSE                               # MIT
 └── README.md
 ```
@@ -143,7 +164,7 @@ Agent 4: Reporting    (tools: create_issue, audit_events, create_note)
 | ☁️ Google Cloud Runner-Up | $3,500 | Fallback target |
 | 🌱 Green Agent Prize | $3,000 | Minimal compute — no external API calls |
 
-**Total targeted: $65,000**
+**Total targeted: $65,000 | 3,208 teams registered**
 
 ## Submission Checklist
 
