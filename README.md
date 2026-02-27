@@ -4,10 +4,11 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![GitLab Duo](https://img.shields.io/badge/GitLab%20Duo-Custom%20Flows-FC6D26)](https://docs.gitlab.com/ee/user/duo_workflow/)
+[![Tests](https://img.shields.io/badge/tests-pytest-green)](tests/)
 
 ## What It Does
 
-A fully automated security orchestration chain that takes a repository from **raw vulnerability scan → enriched triage → auto-fix → compliance report** — all triggered by a single `@ai-secflow` mention in a GitLab MR or issue.
+A fully automated security orchestration chain that takes a repository from **raw vulnerability scan → enriched triage → auto-fix → compliance report** — all triggered by a single mention in a GitLab MR or issue.
 
 ```
 ┌─────────────┐    ┌──────────────┐    ┌─────────────────┐    ┌─────────────┐
@@ -34,18 +35,16 @@ A fully automated security orchestration chain that takes a repository from **ra
 ## Architecture
 
 ```
-Developer mentions @ai-secflow-<group> in MR
+Developer mentions @ai-secflow in MR comment
          ↓
-GitLab CI/CD Runner (docker, tagged: gitlab--duo)
+Trigger configured via GitLab UI (Automate → Flows → Enable)
          ↓
-@gitlab/duo-cli → WebSocket → Duo Workflow Service
+Custom Flow YAML: .gitlab/duo/flows/security-orchestration.yml
          ↓
-Custom Flow YAML: security-orchestration-flow.yml
-         ↓
-Agent 1: Discovery    (tools: ListVulnerabilities, RunSAST, RunSCA)
-Agent 2: Triage       (tools: GetVulnerability, CVEEnrich, SastFPAnalysis)
-Agent 3: Remediation  (tools: CreateVulnerabilityIssue, LinkVulnToMR)
-Agent 4: Reporting    (tools: CreateIssue, AuditEvents, ComplianceSummary)
+Agent 1: Discovery    (tools: list_vulnerabilities, run_pipeline, get_pipeline)
+Agent 2: Triage       (tools: get_vulnerability, sast_fp_analysis, cve_enrichment)
+Agent 3: Remediation  (tools: create_vulnerability_issue, link_vulnerability_to_mr)
+Agent 4: Reporting    (tools: create_issue, audit_events, create_note)
 ```
 
 ## Quick Start
@@ -59,14 +58,24 @@ Agent 4: Reporting    (tools: CreateIssue, AuditEvents, ComplianceSummary)
 
 1. **Fork this repo** into your GitLab project (in the AI Hackathon group)
 
-2. **Enable GitLab Duo** in your project settings
+2. **Add the Custom Flow** in your project:
+   - Go to **Automate → Flows → New flow**
+   - Paste the contents of `.gitlab/duo/flows/security-orchestration.yml`
+   - Configure trigger type (e.g. "mention") via the UI
+   - Save and enable
 
-3. **Trigger the flow** by mentioning in any MR or issue:
+3. **Enable GitLab Duo** in your project settings
+
+4. **Trigger the flow** by mentioning in any MR or issue:
    ```
    @ai-secflow please analyze this merge request for security vulnerabilities
    ```
 
-4. The 4-agent chain runs automatically — results appear as issue comments and linked MRs.
+5. The 4-agent chain runs automatically — results appear as issue comments and linked MRs.
+
+> **Note on triggers:** GitLab Custom Flows configure triggers (mention, assign, assign reviewer)
+> via the UI when enabling a flow — not in the YAML file itself. The YAML defines the agents
+> and their connections; the trigger binding is a separate UI step.
 
 ## File Structure
 
@@ -81,12 +90,16 @@ Agent 4: Reporting    (tools: CreateIssue, AuditEvents, ComplianceSummary)
 │   ├── triage.md                         # Agent 2 system prompt
 │   ├── remediation.md                    # Agent 3 system prompt
 │   └── reporting.md                      # Agent 4 system prompt
+├── tests/
+│   └── test_flow_structure.py            # Pytest structural tests
 ├── vulnerable_app/                        # Sample vulnerable Python app for testing
-│   ├── app.py
+│   ├── app.py                            # Flask app with classic vulns
+│   ├── api_service.py                    # Realistic API service (unlabeled vulns)
 │   ├── auth.py
 │   ├── database.py
-│   └── requirements.txt
+│   └── requirements.txt                  # Pinned packages with real CVEs
 ├── AGENTS.md                             # Runtime context for all agents
+├── SUBMISSION.md                         # Hackathon submission text
 ├── LICENSE                               # MIT
 └── README.md
 ```
@@ -111,15 +124,42 @@ Agent 4: Reporting    (tools: CreateIssue, AuditEvents, ComplianceSummary)
 | `run_pipeline` | Discovery | Trigger fresh scans |
 | `get_project` | All | Project context |
 
-## Prize Targets
+> **Note on tool names:** GitLab does not publish a complete Custom Flows tool catalog publicly.
+> The tool names above are based on GitLab's security API surface and Duo Workflow documentation.
+> Exact names should be verified in the GitLab Duo flow editor or hackathon Discord before
+> end-to-end testing. If a tool name is wrong, update the YAML and re-enable the flow.
 
-- 🥇 Grand Prize: $15,000
-- 🔧 Most Technical: $5,000
-- 💥 Most Impactful: $5,000
-- 🤖 Anthropic Grand Prize: $10,000 *(platform uses Claude Sonnet 4 natively)*
-- ☁️ Google Cloud Prize: $10,000
+## Prize Targets ($65,000 total pool)
 
-**Total potential: $45,000**
+| Prize | Amount | Why We Qualify |
+|-------|--------|---------------|
+| 🥇 Grand Prize | $15,000 | Most complete, production-ready Custom Flow |
+| 🔧 Most Technical | $5,000 | 15+ tools, 4-agent chain, structured JSON contracts |
+| 💥 Most Impactful | $5,000 | Eliminates 3h/MR of manual security review |
+| 🟢 Easiest to Use | $5,000 | Single mention trigger, zero config |
+| 🤖 Anthropic Grand Prize | $10,000 | Claude Sonnet 4 powers all 4 agents natively |
+| 🤖 Anthropic Runner-Up | $3,500 | Fallback target |
+| ☁️ Google Cloud Grand Prize | $10,000 | Deployable on GCP-hosted GitLab runners |
+| ☁️ Google Cloud Runner-Up | $3,500 | Fallback target |
+| 🌱 Green Agent Prize | $3,000 | Minimal compute — no external API calls |
+
+**Total targeted: $65,000**
+
+## Submission Checklist
+
+> ⚠️ **This repo is on GitHub for development.** For submission, it must be forked
+> into a **public GitLab project in the AI Hackathon group**.
+
+- [ ] Register at [gitlab.devpost.com](https://gitlab.devpost.com)
+- [ ] Join GitLab Discord #ai-hackathon channel
+- [ ] Request hackathon group access
+- [ ] Start GitLab Duo Enterprise 30-day trial
+- [ ] Fork this repo into GitLab hackathon group
+- [ ] Paste YAML into GitLab flow editor and verify it parses
+- [ ] Configure trigger via UI (mention type)
+- [ ] Run end-to-end test on `vulnerable_app/`
+- [ ] Record 3-min demo video (see SUBMISSION.md for script)
+- [ ] Submit on Devpost before **March 25, 2026**
 
 ## License
 
